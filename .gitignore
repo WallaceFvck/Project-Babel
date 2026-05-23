@@ -1,0 +1,47 @@
+# Gradle
+.gradle/
+.gradle-home/
+.local/
+build/
+out/
+
+# Minecraft/Forge local runtime data
+/run/
+/runs/
+/logs/
+/crash-reports/
+/saves/
+/config/
+/options.txt
+/servers.dat
+
+# Local inspection/decompiled sources
+.inspect/
+
+# IDEs and editors
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs and JVM dumps
+*.log
+hs_err_pid*
+replay_pid*
+
+# Built artifacts; Gradle wrapper jar is source-controlled on purpose.
+*.jar
+!**/gradle/wrapper/gradle-wrapper.jar
+
+# Local helper scripts with machine-specific paths
+build.bat
+deploy.bat
+local*.bat
+local*.ps1

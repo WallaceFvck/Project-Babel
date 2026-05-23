@@ -1,0 +1,28 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="MIT"
+
+[[dependencies.projectbabel]]
+    modId="forge"
+    mandatory=true
+    versionRange="[47.2,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.projectbabel]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.20.1,1.21)"
+    ordering="NONE"
+    side="BOTH"
+
+[[mods]]
+    modId="projectbabel"
+    version="1.0.0"
+    displayName="Project Babel - Beta"
+    description='''
+Forged from the ruins of Babel, this artifact translates the world around you in real time.
+GitHub: https://github.com/WallaceFvck/Project-Babel
+'''
+    logoFile="projectbabel.png"
+    authors="WallaceFvck"
