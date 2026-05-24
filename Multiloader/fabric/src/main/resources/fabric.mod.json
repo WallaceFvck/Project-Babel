@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "${mod_id}",
+  "version": "${mod_version}",
+  "name": "${mod_display_name}",
+  "description": "${mod_description}",
+  "authors": [
+    "${mod_authors}"
+  ],
+  "contact": {
+    "homepage": "${mod_homepage}",
+    "sources": "${mod_sources}"
+  },
+  "license": "${mod_license}",
+  "icon": "${mod_icon}",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.projectbabel.fabric.ProjectBabelFabric"
+    ]
+  },
+  "mixins": [
+    "projectbabel-common.mixins.json",
+    "projectbabel.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": "${fabric_loader_version_range}",
+    "minecraft": "${fabric_minecraft_version_range}",
+    "java": ">=${java_version}",
+    "fabric-api": "${fabric_api_version_range}"
+  },
+  "suggests": {
+    "modmenu": "*"
+  },
+  "accessWidener": "projectbabel.accesswidener"
+}

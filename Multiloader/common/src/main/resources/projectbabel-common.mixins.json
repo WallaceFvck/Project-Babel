@@ -1,0 +1,23 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "com.projectbabel.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "projectbabel-common-refmap.json",
+  "mixins": [],
+  "client": [
+    "vanilla.AdvancementMixin",
+    "vanilla.BookViewScreenMixin",
+    "vanilla.ChatComponentMixin",
+    "vanilla.ClientLanguageMixin",
+    "vanilla.ClientTooltipMixin",
+    "vanilla.FontMixin",
+    "vanilla.GuiGraphicsMixin",
+    "vanilla.GuiOverlayMessageMixin",
+    "vanilla.ItemStackMixin",
+    "vanilla.TooltipMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

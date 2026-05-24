@@ -1,62 +1,123 @@
 # Porting Strategy
 
-Project Babel should support multiple Minecraft versions and loaders without mixing generated files or local environment data into source control.
+Project Babel now uses a multi-project Gradle setup under `Multiloader/`. The current active loaders are Forge and Fabric for Minecraft 1.20.1.
 
 ## Current Layout
 
-The repository root is only an organizer for loader folders:
-
 ```text
-Forge/
-  Project Babel 1.20.1 - 1.21/
-NeoForge/
-Fabric/
+Multiloader/
+  common/
+  forge/
+  fabric/
+  scripts/
+  build.gradle
+  settings.gradle
+  gradle.properties
 ```
 
-The active Forge build is:
+The root repository is only for shared docs, license, Git metadata, and the `Multiloader/` workspace. Loader-specific builds should stay inside the multi-project workspace.
 
-- `Forge/Project Babel 1.20.1 - 1.21/src/main/java`: mod source code
-- `Forge/Project Babel 1.20.1 - 1.21/src/main/resources`: mod metadata, assets, lang files, and mixin config
-- `Forge/Project Babel 1.20.1 - 1.21/build.gradle`: ForgeGradle build for Minecraft 1.20.1
-- `Forge/Project Babel 1.20.1 - 1.21/gradle.properties`: version and mod metadata
+## Module Responsibilities
 
-Do not commit `build/`, `.gradle/`, `.gradle-home/`, `.inspect/`, `run/`, or local deploy scripts.
+`common` is the source of truth. It owns:
 
-## Branch Naming
+- translation API and service facade
+- pipeline, cache, dictionary, glossary, and skip rules
+- translation engines
+- scheduler and preload acceleration
+- UI shared by loaders
+- vanilla Minecraft mixins
+- loader-neutral mod integrations
+- shared access widener and common mixin config
 
-Use one maintenance branch per loader and Minecraft version:
+`forge` and `fabric` are thin adapters. They own:
 
-- `forge/1.20.1`
-- `neoforge/1.20.1`
-- `neoforge/1.21.1`
-- `fabric/1.20.1`
+- loader entrypoints
+- native events and lifecycle hooks
+- native config bridges
+- keybind registration
+- resource reload bridge
+- loader metadata
+- loader-specific compat mixins
+
+Do not duplicate cache, engines, scheduler, dictionary, pipeline, or vanilla mixins inside loader modules.
+
+## Version Targets
+
+Current target values are centralized in `Multiloader/gradle.properties`:
+
+| Property | Current value |
+| --- | --- |
+| `minecraft_version` | `1.20.1` |
+| `java_version` | `17` |
+| `enabled_platforms` | `fabric,forge` |
+| `forge_version` | `47.2.0` |
+| `fabric_loader_version` | `0.16.14` |
+| `fabric_api_version` | `0.92.9+1.20.1` |
+
+When porting to another Minecraft version, create a dedicated branch first and update all version properties together. Do not mix unrelated Minecraft targets in one branch.
+
+Suggested branch names:
+
+- `multiloader/1.20.1`
+- `multiloader/1.21.1`
 - `fabric/1.21.1`
+- `forge/1.21.1`
+- `neoforge/1.21.1`
 
-Keep `main` as the latest stable line or the default development line. Avoid mixing unrelated loader ports in the same branch unless the project is migrated to a multi-loader Gradle setup.
+## Adding NeoForge
+
+NeoForge is planned, but not currently part of `enabled_platforms`.
+
+When starting the NeoForge port:
+
+1. Add a `neoforge` module under `Multiloader/`.
+2. Include it in `settings.gradle`.
+3. Add `neoforge` to `enabled_platforms`.
+4. Keep NeoForge code as a thin adapter like `forge` and `fabric`.
+5. Move reusable behavior into `common`, not into the NeoForge module.
+6. Add metadata, config bridge, platform services, events, and compat mixins only where needed.
+7. Extend validation tasks so NeoForge follows the same boundaries.
 
 ## Release Tags
 
-Use tags that include loader, Minecraft version, and mod version:
+Use release tags that include loader, Minecraft version, and mod version:
 
 - `forge-1.20.1-v1.0.0`
+- `fabric-1.20.1-v1.0.0`
 - `neoforge-1.21.1-v1.0.0`
-- `fabric-1.21.1-v1.0.0`
 
-GitHub Releases should attach only the final jar files from `build/libs/`, not the whole `build/` directory.
+GitHub Releases should attach only final loader jars from `Multiloader/<loader>/build/libs/`, not the whole `build/` directory.
 
-## When To Split Shared Code
+## Required Validation
 
-Keep the root Forge project as-is until another loader actually exists. When the first Fabric or NeoForge port starts, migrate shared translation logic into a common module and keep loader-specific entrypoints, events, mixins, and metadata separate.
+Run these from `Multiloader/` before considering a port complete:
 
-Recommended layout for each loader:
-
-```text
-Fabric/
-  Project Babel 1.20.1 - 1.21/
-  Project Babel 1.21.1 - 1.21.5/
-NeoForge/
-  Project Babel 1.20.1 - 1.21/
-  Project Babel 1.21.1 - 1.21.5/
+```powershell
+.\gradlew.bat validateArchitecture
+.\gradlew.bat :common:compileJava
+.\gradlew.bat :fabric:compileJava
+.\gradlew.bat :forge:compileJava
+.\gradlew.bat build
 ```
 
-If code sharing becomes painful, migrate the loader/version folders to a multi-project Gradle setup with a shared `common` module. Do that only when the second loader port is real.
+The Python architecture checker can also be run directly:
+
+```powershell
+python scripts\validate_architecture.py
+```
+
+## Do Not Commit
+
+Keep these out of Git:
+
+- `build/`
+- `.gradle/`
+- `.gradle-home/`
+- `.local/`
+- `.inspect/`
+- `run/`
+- generated jars outside release assets
+- machine-specific deploy scripts
+
+These are already covered by the repository `.gitignore`.

@@ -1,0 +1,16 @@
+architectury {
+    common(rootProject.enabled_platforms.split(','))
+}
+
+loom {
+    accessWidenerPath = file('src/main/resources/projectbabel.accesswidener')
+}
+
+dependencies {
+    // Loader stub for the common Loom environment only. Do not import FabricLoader in common code.
+    modImplementation "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
+
+    // Minecraft already provides these at runtime; keep them out of shaded platform jars.
+    compileOnly "com.google.code.gson:gson:${rootProject.gson_version}"
+    compileOnly "org.apache.logging.log4j:log4j-api:${rootProject.log4j_version}"
+}

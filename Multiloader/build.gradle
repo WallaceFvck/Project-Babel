@@ -1,0 +1,329 @@
+plugins {
+    id 'architectury-plugin'
+    id 'dev.architectury.loom' apply false
+    id 'com.gradleup.shadow' apply false
+    id 'maven-publish'
+}
+
+architectury {
+    minecraft = project.minecraft_version
+}
+
+allprojects {
+    group = project.mod_group_id
+    version = project.mod_version
+}
+
+ext {
+    resourcePlaceholders = [
+        mod_id: mod_id,
+        mod_name: mod_name,
+        mod_display_name: mod_display_name,
+        mod_version: mod_version,
+        version: mod_version,
+        mod_group_id: mod_group_id,
+        mod_license: mod_license,
+        mod_authors: mod_authors,
+        mod_description: mod_description,
+        mod_homepage: mod_homepage,
+        mod_sources: mod_sources,
+        mod_icon: mod_icon,
+        minecraft_version: minecraft_version,
+        minecraft_version_range: minecraft_version_range,
+        fabric_minecraft_version_range: fabric_minecraft_version_range,
+        java_version: java_version,
+        forge_version: forge_version,
+        forge_loader_version_range: forge_loader_version_range,
+        forge_version_range: forge_version_range,
+        fabric_loader_version: fabric_loader_version,
+        fabric_loader_version_range: fabric_loader_version_range,
+        fabric_api_version: fabric_api_version,
+        fabric_api_version_range: fabric_api_version_range
+    ]
+}
+
+tasks.register('validateCommonBoundaries') {
+    group = 'verification'
+    description = 'Fails if common imports platform-specific APIs or legacy platform namespaces.'
+
+    doLast {
+        def commonJava = file('common/src/main/java')
+        def bannedTokens = [
+            'net.fabricmc.',
+            'net.minecraftforge.',
+            'com.projectbabel.fabric.',
+            'com.projectbabel.forge.',
+            'FabricLoader',
+            'ModList',
+            'AutoTranslateConfig'
+        ]
+
+        def violations = []
+        if (commonJava.exists()) {
+            fileTree(commonJava).matching { include '**/*.java' }.files.each { sourceFile ->
+                def content = sourceFile.getText('UTF-8')
+                bannedTokens.each { token ->
+                    if (content.contains(token)) {
+                        violations << "${rootDir.toPath().relativize(sourceFile.toPath())}: contains '${token}'"
+                    }
+                }
+            }
+        }
+
+        if (!violations.isEmpty()) {
+            throw new GradleException('Common boundary violation:\n' + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('validateJavaPackages') {
+    group = 'verification'
+    description = 'Fails if a Java package declaration does not match its source path.'
+
+    doLast {
+        def violations = []
+        ['common', 'fabric', 'forge'].each { moduleName ->
+            def javaRoot = file("${moduleName}/src/main/java")
+            if (!javaRoot.exists()) return
+
+            fileTree(javaRoot).matching { include '**/*.java' }.files.each { sourceFile ->
+                def content = sourceFile.getText('UTF-8')
+                def matcher = content =~ /(?m)^\s*package\s+([a-zA-Z0-9_.]+)\s*;/
+                if (!matcher.find()) {
+                    violations << "${rootDir.toPath().relativize(sourceFile.toPath())}: missing package declaration"
+                    return
+                }
+
+                def declaredPackage = matcher.group(1)
+                def expectedSuffix = declaredPackage.replace('.', File.separator) + File.separator + sourceFile.name
+                def actualPath = javaRoot.toPath().relativize(sourceFile.toPath()).toString()
+                if (actualPath != expectedSuffix) {
+                    violations << "${rootDir.toPath().relativize(sourceFile.toPath())}: declares '${declaredPackage}', expected path '${expectedSuffix}', actual '${actualPath}'"
+                }
+            }
+        }
+
+        if (!violations.isEmpty()) {
+            throw new GradleException('Java package/path mismatch:\n' + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('validateLegacyNamespaces') {
+    group = 'verification'
+    description = 'Fails if migrated legacy Project Babel namespaces reappear.'
+
+    doLast {
+        def bannedNamespaces = [
+            'com.projectbabel.translation.',
+            'com.projectbabel.config.',
+            'com.projectbabel.event.',
+            'com.projectbabel.client.',
+            'com.projectbabel.minecraft.event.',
+            'com.projectbabel.screen.',
+            'com.projectbabel.overlay.'
+        ]
+        def violations = []
+
+        ['common', 'fabric', 'forge'].each { moduleName ->
+            def javaRoot = file("${moduleName}/src/main/java")
+            if (!javaRoot.exists()) return
+
+            fileTree(javaRoot).matching { include '**/*.java' }.files.each { sourceFile ->
+                def content = sourceFile.getText('UTF-8')
+                bannedNamespaces.each { namespace ->
+                    if (content.contains(namespace)) {
+                        violations << "${rootDir.toPath().relativize(sourceFile.toPath())}: contains legacy namespace '${namespace}'"
+                    }
+                }
+            }
+        }
+
+        if (!violations.isEmpty()) {
+            throw new GradleException('Legacy namespace violation:\n' + violations.join('\n'))
+        }
+    }
+}
+
+
+tasks.register('validateResourcePlaceholders') {
+    group = 'verification'
+    description = 'Fails if loader metadata references undefined Gradle placeholders.'
+
+    doLast {
+        def placeholderKeys = rootProject.ext.resourcePlaceholders.keySet() as Set
+        def filesToCheck = [
+            file('fabric/src/main/resources/fabric.mod.json'),
+            file('forge/src/main/resources/META-INF/mods.toml')
+        ]
+        def violations = []
+        def pattern = ~/\$\{([^}]+)\}/
+
+        filesToCheck.findAll { it.exists() }.each { metadataFile ->
+            def matcher = metadataFile.getText('UTF-8') =~ pattern
+            matcher.each { match ->
+                def key = match[1]
+                if (!placeholderKeys.contains(key)) {
+                    violations << "${rootDir.toPath().relativize(metadataFile.toPath())}: undefined placeholder '${key}'"
+                }
+            }
+        }
+
+        if (!violations.isEmpty()) {
+            throw new GradleException('Resource placeholder violation:\n' + violations.join('\n'))
+        }
+    }
+}
+
+
+tasks.register('validateLoomPlatformFiles') {
+    group = 'verification'
+    description = 'Fails if loader-specific Loom platform properties are missing.'
+
+    doLast {
+        def forgeProperties = file('forge/gradle.properties')
+        if (!forgeProperties.exists() || !forgeProperties.getText('UTF-8').readLines().any { it.trim() == 'loom.platform=forge' }) {
+            throw new GradleException('forge/gradle.properties must contain loom.platform=forge')
+        }
+    }
+}
+
+
+
+tasks.register('validateCommonMixinInfrastructure') {
+    group = 'verification'
+    description = 'Fails if vanilla mixins, common mixin config or common access widener are misconfigured.'
+
+    doLast {
+        def violations = []
+        def platformVanillaDirs = [
+            file('fabric/src/main/java/com/projectbabel/mixin/vanilla'),
+            file('forge/src/main/java/com/projectbabel/mixin/vanilla')
+        ]
+        platformVanillaDirs.each { dir ->
+            if (dir.exists() && !fileTree(dir).matching { include '**/*.java' }.isEmpty()) {
+                violations << "${rootDir.toPath().relativize(dir.toPath())}: vanilla mixins must live in common"
+            }
+        }
+
+        [
+            file('common/src/main/resources/projectbabel-common.mixins.json'),
+            file('common/src/main/resources/projectbabel.accesswidener'),
+            file('common/src/main/resources/architectury.common.json')
+        ].each { requiredFile ->
+            if (!requiredFile.exists()) {
+                violations << "missing ${rootDir.toPath().relativize(requiredFile.toPath())}"
+            }
+        }
+
+        def commonBuild = file('common/build.gradle').getText('UTF-8')
+        if (commonBuild.contains('implementation "com.google.code.gson:gson')) {
+            violations << 'common/build.gradle must use compileOnly for Gson, not implementation'
+        }
+
+        if (!violations.isEmpty()) {
+            throw new GradleException('Common mixin infrastructure violation:\n' + violations.join('\n'))
+        }
+    }
+}
+
+
+
+tasks.register('validateSpongeRepository') {
+    group = 'verification'
+    description = 'Fails if the SpongePowered Maven repository required by the Mixin annotation processor is missing.'
+
+    doLast {
+        def rootBuild = file('build.gradle').getText('UTF-8')
+        def settingsBuild = file('settings.gradle').getText('UTF-8')
+        if (!rootBuild.contains('repo.spongepowered.org/repository/maven-public') && !settingsBuild.contains('repo.spongepowered.org/repository/maven-public')) {
+            throw new GradleException('SpongePowered Maven repository is required for org.spongepowered:mixin annotation processor')
+        }
+    }
+}
+
+
+tasks.register('validateGradleEnvironment') {
+    group = 'verification'
+    description = 'Fails if the project is not pinned to the supported Gradle/Shadow environment.'
+
+    doLast {
+        def wrapperProperties = file('gradle/wrapper/gradle-wrapper.properties')
+        if (!wrapperProperties.exists()) {
+            throw new GradleException('Missing gradle/wrapper/gradle-wrapper.properties')
+        }
+
+        def wrapperText = wrapperProperties.getText('UTF-8')
+        if (!wrapperText.contains('gradle-8.11.1-bin.zip')) {
+            throw new GradleException('Project Babel must use Gradle 8.11.1 for the current Architectury Loom toolchain')
+        }
+
+        def settingsText = file('settings.gradle').getText('UTF-8')
+        if (settingsText.contains('com.github.johnrengelman.shadow')) {
+            throw new GradleException('Use com.gradleup.shadow instead of the legacy com.github.johnrengelman.shadow plugin id')
+        }
+        if (!settingsText.contains("id 'com.gradleup.shadow' version '8.3.9'")) {
+            throw new GradleException('Expected com.gradleup.shadow version 8.3.9 in settings.gradle')
+        }
+    }
+}
+
+tasks.register('validateArchitecture') {
+    group = 'verification'
+    description = 'Runs Project Babel multi-loader architecture guardrails.'
+    dependsOn 'validateCommonBoundaries', 'validateJavaPackages', 'validateLegacyNamespaces', 'validateLoomPlatformFiles', 'validateResourcePlaceholders', 'validateCommonMixinInfrastructure', 'validateSpongeRepository', 'validateGradleEnvironment'
+}
+
+if (tasks.findByName('check') == null) {
+    tasks.register('check') {
+        group = 'verification'
+        dependsOn 'validateArchitecture'
+    }
+} else {
+    tasks.named('check').configure {
+        dependsOn 'validateArchitecture'
+    }
+}
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'dev.architectury.loom'
+    apply plugin: 'architectury-plugin'
+    apply plugin: 'maven-publish'
+
+    repositories {
+        // Required for org.spongepowered:mixin:<version>:processor used by Forge mixin refmap generation.
+        maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
+    }
+
+    base {
+        archivesName = "${rootProject.archives_base_name}-${project.name}"
+    }
+
+    java {
+        toolchain.languageVersion = JavaLanguageVersion.of(rootProject.java_version as int)
+        withSourcesJar()
+    }
+
+    loom {
+        silentMojangMappingsLicense()
+    }
+
+    dependencies {
+        minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
+        mappings loom.officialMojangMappings()
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = rootProject.java_version as int
+    }
+
+    tasks.withType(ProcessResources).configureEach {
+        inputs.properties(rootProject.ext.resourcePlaceholders)
+    }
+
+    tasks.named('check').configure {
+        dependsOn rootProject.tasks.named('validateArchitecture')
+    }
+}
