@@ -151,3 +151,5 @@ You can support the project by starring the repository, reporting issues, testin
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
+
+The MIT License applies to the source code. The Project Babel name, logo, and release identity should not be used to imply that an unofficial fork or modified build is the official project.
