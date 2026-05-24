@@ -137,6 +137,8 @@ Important docs:
 - [Multiloader README](Multiloader/README.md)
 - [Architecture Guide](Multiloader/ARCHITECTURE_GUIDE.md)
 - [Porting Strategy](docs/PORTING.md)
+- [Versioning Strategy](docs/VERSIONING.md)
+- [AI Maintenance Context](docs/AI_CONTEXT.md)
 
 Build outputs, Gradle caches, local runtime folders, decompiled sources, and machine-specific scripts are intentionally ignored by Git.
 

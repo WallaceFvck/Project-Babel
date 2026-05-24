@@ -19,6 +19,10 @@ This is the active Project Babel workspace. It uses Gradle multi-project builds 
 
 Project metadata and target versions live in `gradle.properties`.
 
+Minecraft version lines are managed with Git branches, not duplicate folders. The current 1.20.1 line is represented by `main` and `mc/1.20.1`; future ports should use branches such as `mc/1.21.1`.
+
+See `../docs/VERSIONING.md` before creating a new Minecraft version line.
+
 ## Commands
 
 Validate architecture boundaries:

@@ -55,15 +55,18 @@ Current target values are centralized in `Multiloader/gradle.properties`:
 | `fabric_loader_version` | `0.16.14` |
 | `fabric_api_version` | `0.92.9+1.20.1` |
 
-When porting to another Minecraft version, create a dedicated branch first and update all version properties together. Do not mix unrelated Minecraft targets in one branch.
+When porting to another Minecraft version, create a dedicated branch first and update all version properties together. Do not mix unrelated Minecraft targets in one branch and do not duplicate the full `Multiloader/` tree into version folders.
 
-Suggested branch names:
+Official branch names:
 
-- `multiloader/1.20.1`
-- `multiloader/1.21.1`
-- `fabric/1.21.1`
-- `forge/1.21.1`
-- `neoforge/1.21.1`
+- `main`: default development line for the current stable target
+- `mc/1.20.1`: maintenance line for Minecraft 1.20.1
+- `mc/1.21.1`: future port line for Minecraft 1.21.1
+- `mc/1.21.5`: future port line for Minecraft 1.21.5
+
+Loader-specific branches such as `fabric/1.21.1` or `forge/1.21.1` should only be used for temporary porting work that cannot land cleanly in the shared `mc/<version>` branch yet.
+
+See [VERSIONING.md](VERSIONING.md) for the full branch and release policy.
 
 ## Adding NeoForge
 
